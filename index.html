@@ -1,88 +1,4 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Directorio Normativo de Entidades - Bolivia</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Añadimos la librería SheetJS para procesar y crear archivos Excel nativamente -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f3f4f6;
-        }
-        .card-hover {
-            transition: all 0.3s ease;
-        }
-        .card-hover:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-    </style>
-</head>
-<body class="text-gray-800 antialiased min-h-screen flex flex-col">
-
-    <!-- Header -->
-    <header class="bg-red-800 text-white shadow-md">
-        <div class="container mx-auto px-4 py-6">
-            <div class="flex flex-col md:flex-row justify-between items-center">
-                <div class="flex items-center mb-4 md:mb-0">
-                    <i class="fas fa-book-scale text-3xl mr-3 text-yellow-400"></i>
-                    <div>
-                        <h1 class="text-2xl font-bold">Normativas y Atribuciones</h1>
-                        <p class="text-sm text-red-200">Entidades del Estado Plurinacional de Bolivia</p>
-                    </div>
-                </div>
-                <!-- Search Bar -->
-                <div class="w-full md:w-1/3 relative">
-                    <input type="text" id="searchInput" placeholder="Buscar por sigla, nombre o ley..." 
-                           class="w-full pl-10 pr-4 py-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 shadow-inner">
-                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="container mx-auto px-4 py-8 flex-grow">
-        
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xl font-semibold text-gray-700">Listado de Entidades <span id="countBadge" class="bg-gray-200 text-gray-600 py-1 px-2 rounded-full text-sm ml-2">0</span></h2>
-            
-            <div class="flex flex-wrap items-center gap-4">
-                <!-- Botones y herramientas de Excel -->
-                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" class="hidden">
-                
-                <button onclick="document.getElementById('fileInput').click()" class="flex items-center text-green-700 hover:text-green-600 font-medium transition-colors text-sm" title="Importar entidades desde Excel">
-                    <i class="fas fa-file-import mr-2"></i> Importar
-                </button>
-                
-                <button onclick="exportToExcel()" class="flex items-center text-blue-700 hover:text-blue-600 font-medium transition-colors text-sm border-r border-gray-300 pr-4" title="Descargar como Excel">
-                    <i class="fas fa-file-export mr-2"></i> Exportar
-                </button>
-
-                <button onclick="sortEntities()" class="flex items-center text-red-800 hover:text-red-600 font-medium transition-colors text-sm">
-                    <i class="fas fa-sort-alpha-down mr-2"></i> Ordenar A-Z
-                </button>
-            </div>
-        </div>
-
-        <!-- Grid Container -->
-        <div id="entitiesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Las tarjetas se insertarán aquí dinámicamente con JS -->
-        </div>
-
-        <!-- No Results Message -->
-        <div id="noResults" class="hidden text-center py-12">
-            <i class="fas fa-search-minus text-4xl text-gray-400 mb-4"></i>
-            <h3 class="text-lg font-medium text-gray-600">No se encontraron entidades</h3>
-            <p class="text-gray-500">Intenta con otros términos de búsqueda.</p>
-        </div>
-
-    </main>
-
+<!-- ... existing code ... -->
     <!-- Footer -->
     <footer class="bg-gray-800 text-white py-6 mt-auto">
         <div class="container mx-auto px-4 text-center text-sm text-gray-400">
@@ -92,81 +8,59 @@
 
     <!-- JavaScript Base de Datos y Lógica -->
     <script>
-        // Base de datos por defecto
+        // Base de datos enriquecida con referencias a Gaceta Oficial y Lexivox
         const defaultDbEntidades = [
             // Ministerio de Gobierno
-            { sigla: "COVIPOL", nombre: "Consejo Nacional de Vivienda Policial", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley Orgánica de la Policía Nacional", normativa_adicional: "D.S. N° 3106 (Políticas de ejecución de vivienda), D.S. N° 2899 (Modificación estructural)", atribuciones: "Planificación y ejecución de proyectos de vivienda para la Policía.", descripcion: "Entidad encargada de dotar y gestionar planes de vivienda en beneficio de la familia policial." },
-            { sigla: "DIGEMIG", nombre: "Dirección General de Migración", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 370 de Migración (08/05/2013)", normativa_adicional: "Ley N° 264 (Seguridad Ciudadana), D.S. N° 1923 (Reglamento a la Ley 370), Ley N° 1220", atribuciones: "Control y registro de flujo migratorio, emisión de arraigos.", descripcion: "Regula el ingreso, tránsito y salida de personas del territorio nacional." },
-            { sigla: "DIPREVCON", nombre: "Dirección de Apoyo a la Prevención del Consumo de Drogas, Control del Tráfico Ilícito de Sustancias Controladas", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 913 de Lucha Contra el Tráfico Ilícito de Sustancias", normativa_adicional: "D.S. N° 3434 (Reglamento a la Ley 913), D.S. N° 4514", atribuciones: "Apoyo a políticas de prevención, interdicción y erradicación.", descripcion: "Eje operativo y preventivo del Estado en la lucha contra el narcotráfico y consumo de drogas." },
-            { sigla: "DIRCABI", nombre: "Dirección General de Registro, Control y Administración de Bienes Incautados", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 913 (Reestructurada)", normativa_adicional: "Ley N° 004 (Marcelo Quiroga S.C. - Recuperación de activos), D.S. N° 3434", atribuciones: "Administración, monetización y custodia de bienes confiscados.", descripcion: "Entidad encargada de administrar los bienes incautados al narcotráfico y enriquecimiento ilícito." },
-            { sigla: "MUSERPOL", nombre: "Mutual de Servicios al Policía", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Decreto Supremo N° 1446 (19/12/2012)", normativa_adicional: "D.S. N° 2614 (Funciones de administración de recursos adicionales)", atribuciones: "Gestión de prestaciones y servicios de seguridad social para la Policía.", descripcion: "Administra el régimen de bienestar social y económico de la Policía Boliviana." },
-            { sigla: "OBSCD", nombre: "Observatorio Boliviano de Seguridad Ciudadana y Lucha Contra las Drogas", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 264 del Sistema Nacional de Seguridad Ciudadana", normativa_adicional: "D.S. N° 1436 (Reglamento Ley 264), D.S. N° 3434", atribuciones: "Análisis, estadística e investigación criminológica.", descripcion: "Genera información estadística y análisis para la formulación de políticas de seguridad ciudadana." },
-            { sigla: "SEGELIC", nombre: "Servicio General de Licencias de Conducir", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 145 (27/06/2011)", normativa_adicional: "D.S. N° 1117 (Reglamentación SEGELIC), D.S. N° 1198", atribuciones: "Otorgación, registro y control de licencias de conducir.", descripcion: "Responsable de la emisión de las licencias y permisos de conducción a nivel nacional." },
-            { sigla: "SEGIP", nombre: "Servicio General de Identificación Personal", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 145 (27/06/2011)", normativa_adicional: "D.S. N° 4342 (Ciudadanía Digital y Cédula Digital), Ley N° 370 (Registro de Extranjeros)", atribuciones: "Otorgación de cédulas de identidad y administración del RUIP.", descripcion: "Institución civil garante del derecho a la identidad de los bolivianos." },
+            { sigla: "COVIPOL", nombre: "Consejo Nacional de Vivienda Policial", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley Orgánica de la Policía (Ley N° 734 de 08/04/1985)", normativa_adicional: "D.S. N° 3106 (Políticas de ejecución de vivienda), D.S. N° 2899 (Modificación estructural), D.S. N° 1446, D.S. N° 2369, D.S. N° 3804 (Reglamentación de préstamos)", atribuciones: "Planificación y ejecución de proyectos de vivienda para la Policía.", descripcion: "Entidad encargada de dotar y gestionar planes de vivienda en beneficio de la familia policial." },
+            { sigla: "DIGEMIG", nombre: "Dirección General de Migración", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 370 de Migración (08/05/2013)", normativa_adicional: "D.S. N° 1923 (Reglamento a la Ley 370), Ley N° 264, D.S. N° 2404 (Reglamento de emisión de pasaportes), Ley N° 1220, D.S. N° 4469, D.S. N° 4576 (Regularización migratoria)", atribuciones: "Control y registro de flujo migratorio, emisión de arraigos y pasaportes.", descripcion: "Regula el ingreso, tránsito y salida de personas del territorio nacional." },
+            { sigla: "DIPREVCON", nombre: "Dirección de Apoyo a la Prevención del Consumo de Drogas, Control del Tráfico Ilícito de Sustancias Controladas", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 913 (16/03/2017) / D.S. N° 3434", normativa_adicional: "D.S. N° 3434 (Reglamento a la Ley 913), D.S. N° 4514, D.S. N° 4616 (Absorción de competencias del ex-CONALTID)", atribuciones: "Apoyo a políticas de prevención, interdicción y erradicación.", descripcion: "Eje operativo y preventivo del Estado en la lucha contra el narcotráfico y consumo de drogas." },
+            { sigla: "DIRCABI", nombre: "Dirección General de Registro, Control y Administración de Bienes Incautados", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "D.L. N° 14251 (1976) / Ley N° 1008 / Ley N° 913", normativa_adicional: "Ley N° 004 (Marcelo Quiroga S.C.), D.S. N° 3434, D.S. N° 26143, D.S. N° 4817 (Procedimientos de monetización), D.S. N° 4974", atribuciones: "Administración, monetización y custodia de bienes confiscados.", descripcion: "Entidad encargada de administrar los bienes incautados al narcotráfico y enriquecimiento ilícito." },
+            { sigla: "MUSERPOL", nombre: "Mutual de Servicios al Policía", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Decreto Supremo N° 1446 (19/12/2012)", normativa_adicional: "D.S. N° 2614 (Funciones de administración de recursos adicionales), D.S. N° 2873 (Reglamento de MUSERPOL), D.S. N° 3535, Ley N° 3988", atribuciones: "Gestión de prestaciones y servicios de seguridad social para la Policía.", descripcion: "Administra el régimen de bienestar social y económico de la Policía Boliviana." },
+            { sigla: "OBSCD", nombre: "Observatorio Boliviano de Seguridad Ciudadana y Lucha Contra las Drogas", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 264 de Seguridad Ciudadana (31/07/2012)", normativa_adicional: "D.S. N° 1436 (Reglamento Ley 264), D.S. N° 3434, D.S. N° 4616 (Fusión con el Observatorio de Drogas)", atribuciones: "Análisis, estadística e investigación criminológica.", descripcion: "Genera información estadística y análisis para la formulación de políticas de seguridad ciudadana." },
+            { sigla: "SEGELIC", nombre: "Servicio General de Licencias de Conducir", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 145 (27/06/2011)", normativa_adicional: "D.S. N° 1117 (Reglamentación SEGELIC), D.S. N° 1198, D.S. N° 4342 (Digitalización), Ley N° 165 (Transporte)", atribuciones: "Otorgación, registro y control de licencias de conducir.", descripcion: "Responsable de la emisión de las licencias y permisos de conducción a nivel nacional." },
+            { sigla: "SEGIP", nombre: "Servicio General de Identificación Personal", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 145 (27/06/2011)", normativa_adicional: "Ley N° 370 (Registro de Extranjeros), D.S. N° 4342 (Ciudadanía y Cédula Digital), D.S. N° 4806 (Actualización de formato del CI), D.S. N° 1434", atribuciones: "Otorgación de cédulas de identidad y administración del RUIP.", descripcion: "Institución civil garante del derecho a la identidad de los bolivianos." },
 
             // Ministerio de la Presidencia
-            { sigla: "AGETIC", nombre: "Agencia de Gobierno Electrónico y Tecnologías de Información", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Decreto Supremo N° 2514 (09/09/2015)", normativa_adicional: "Ley N° 1080 (Ciudadanía Digital), D.S. N° 3525 (Firma Digital), D.S. N° 3251", atribuciones: "Implementación de gobierno electrónico, simplificación de trámites.", descripcion: "Desarrolla tecnología para modernizar el Estado y acercarlo a los ciudadanos." },
-            { sigla: "DEGSE", nombre: "Despacho de Gestión Social de su Excelencia", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "D.S. 29894 (Modificado por D.S. 4857)", normativa_adicional: "D.S. N° 4857 (Organización del Órgano Ejecutivo)", atribuciones: "Apoyo a sectores vulnerables y asistencia social.", descripcion: "Unidad dependiente de la Presidencia que coordina programas de ayuda humanitaria y social." },
-            { sigla: "DIRNOPLU", nombre: "Dirección del Notariado Plurinacional", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 483 del Notariado Plurinacional (25/01/2014)", normativa_adicional: "D.S. N° 2189 (Reglamento Ley 483), D.S. N° 3946", atribuciones: "Control, supervisión y regulación del servicio notarial.", descripcion: "Entidad que organiza y fiscaliza la función y los servicios de los notarios de fe pública." },
-            { sigla: "Gestora SAJ-RPA", nombre: "Gestora del Sistema de Acceso a la Justicia y Registro Público de la Abogacía", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 387 del Ejercicio de la Abogacía", normativa_adicional: "D.S. N° 1888 (Reglamento Ley 387), D.S. N° 3898", atribuciones: "Registro nacional de abogados y apoyo al acceso de justicia.", descripcion: "Controla el registro de profesionales abogados y promueve mecanismos de acceso a la justicia." },
-            { sigla: "OFEP", nombre: "Oficina Técnica para el Fortalecimiento de la Empresa Pública", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 466 de la Empresa Pública (26/12/2013)", normativa_adicional: "D.S. N° 1978 (Reglamento Ley 466 de la Empresa Pública)", atribuciones: "Asistencia técnica y evaluación a empresas estatales.", descripcion: "Entidad técnica de seguimiento, control y fortalecimiento de las Empresas Públicas del Estado." },
-            { sigla: "SEA", nombre: "Servicio Estatal de Autonomías", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 031 Marco de Autonomías (19/07/2010)", normativa_adicional: "D.S. N° 1310 (Estructura del SEA), Ley N° 777 (SPIE)", atribuciones: "Conciliación, apoyo técnico y normativo a las ETA's.", descripcion: "Asesora y facilita el proceso de descentralización y la gestión de gobiernos subnacionales." },
-            { sigla: "SEPDAVI", nombre: "Servicio Plurinacional de Asistencia a la Víctima", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 464 (19/12/2013)", normativa_adicional: "D.S. N° 2049 (Reglamento Ley 464), Ley N° 1173 (Abreviación Procesal Penal)", atribuciones: "Patrocinio legal, apoyo psicológico y social a víctimas.", descripcion: "Garantiza el acceso a la justicia a víctimas de delitos que no cuentan con recursos." },
-            { sigla: "SEPDEP", nombre: "Servicio Plurinacional de Defensa Pública", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 463 (19/12/2013)", normativa_adicional: "D.S. N° 2001 (Reglamento Ley 463), Ley N° 1173 (Abreviación Procesal Penal)", atribuciones: "Defensa penal técnica y gratuita para imputados.", descripcion: "Institución que provee abogados defensores gratuitos en el área penal." },
-            { sigla: "UNICOM", nombre: "Unidad de Comunicación Estratégica del Estado Plurinacional", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Resolución del Ministerio de la Presidencia", normativa_adicional: "D.S. N° 4857 (Estructura del Órgano Ejecutivo)", atribuciones: "Gestión de la comunicación y difusión de políticas estatales.", descripcion: "Brazo comunicacional estratégico del Gobierno Central." },
+            { sigla: "AGETIC", nombre: "Agencia de Gobierno Electrónico y Tecnologías de Información", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Decreto Supremo N° 2514 (09/09/2015)", normativa_adicional: "Ley N° 1080 (Ciudadanía Digital), D.S. N° 3525 (Firma Digital), D.S. N° 3251 (Plan de Gobierno Electrónico), D.S. N° 4504, Ley N° 164", atribuciones: "Implementación de gobierno electrónico, simplificación de trámites.", descripcion: "Desarrolla tecnología para modernizar el Estado y acercarlo a los ciudadanos." },
+            { sigla: "DEGSE", nombre: "Despacho de Gestión Social de su Excelencia", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "D.S. N° 29894 (07/02/2009)", normativa_adicional: "D.S. N° 4857 (Organización del Órgano Ejecutivo), D.S. N° 0429, D.S. N° 3058 (Donaciones y transferencias)", atribuciones: "Apoyo a sectores vulnerables y asistencia social humanitaria.", descripcion: "Unidad dependiente de la Presidencia que coordina programas de ayuda humanitaria y social." },
+            { sigla: "DIRNOPLU", nombre: "Dirección del Notariado Plurinacional", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 483 del Notariado Plurinacional (25/01/2014)", normativa_adicional: "D.S. N° 2189 (Reglamento Ley 483), D.S. N° 3946, Ley N° 1146, D.S. N° 4503, Resolución Administrativa DIRNOPLU N° 045/2021", atribuciones: "Control, supervisión y regulación del servicio notarial.", descripcion: "Entidad que organiza y fiscaliza la función y los servicios de los notarios de fe pública." },
+            { sigla: "Gestora SAJ-RPA", nombre: "Gestora del Sistema de Acceso a la Justicia y Registro Público de la Abogacía", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 387 del Ejercicio de la Abogacía (09/07/2013)", normativa_adicional: "D.S. N° 1888 (Reglamento Ley 387), D.S. N° 3898, D.S. N° 2636, D.S. N° 4504 (Plataformas digitales)", atribuciones: "Registro nacional de abogados y apoyo al acceso de justicia.", descripcion: "Controla el registro de profesionales abogados y promueve mecanismos de acceso a la justicia." },
+            { sigla: "OFEP", nombre: "Oficina Técnica para el Fortalecimiento de la Empresa Pública", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 466 de la Empresa Pública (26/12/2013)", normativa_adicional: "D.S. N° 1978 (Reglamento Ley 466), D.S. N° 2855, D.S. N° 3290, D.S. N° 4857", atribuciones: "Asistencia técnica, control y evaluación a empresas estatales.", descripcion: "Entidad técnica de seguimiento, control y fortalecimiento de las Empresas Públicas del Estado." },
+            { sigla: "SEA", nombre: "Servicio Estatal de Autonomías", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 031 Marco de Autonomías y Descentralización (19/07/2010)", normativa_adicional: "D.S. N° 1310 (Estructura del SEA), Ley N° 777 (SPIE), Ley N° 1407, D.S. N° 2840, D.S. N° 4857", atribuciones: "Conciliación, apoyo técnico y normativo a las ETA's.", descripcion: "Asesora y facilita el proceso de descentralización y la gestión de gobiernos subnacionales." },
+            { sigla: "SEPDAVI", nombre: "Servicio Plurinacional de Asistencia a la Víctima", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 464 (19/12/2013)", normativa_adicional: "D.S. N° 2049 (Reglamento Ley 464), Ley N° 1173 (Abreviación Procesal Penal), Ley N° 348, Ley N° 378, D.S. N° 3898", atribuciones: "Patrocinio legal, apoyo psicológico y social a víctimas.", descripcion: "Garantiza el acceso a la justicia a víctimas de delitos que no cuentan con recursos." },
+            { sigla: "SEPDEP", nombre: "Servicio Plurinacional de Defensa Pública", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 463 (19/12/2013)", normativa_adicional: "D.S. N° 2001 (Reglamento Ley 463), Ley N° 1173 (Abreviación Procesal Penal), Ley N° 548, D.S. N° 3898", atribuciones: "Defensa penal técnica y gratuita para imputados.", descripcion: "Institución que provee abogados defensores gratuitos en el área penal." },
+            { sigla: "UNICOM", nombre: "Unidad de Comunicación Estratégica del Estado Plurinacional", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "D.S. N° 1140 (15/02/2012)", normativa_adicional: "D.S. N° 4857 (Estructura del Órgano Ejecutivo), D.S. N° 29894, D.S. N° 4257 (Modificaciones operativas)", atribuciones: "Gestión de la comunicación y difusión de políticas estatales.", descripcion: "Brazo comunicacional estratégico del Gobierno Central." },
 
             // Ministerio de Salud y Deportes
-            { sigla: "AGEMED", nombre: "Agencia Estatal de Medicamentos y Tecnologías en Salud", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Ley N° 1737 del Medicamento / D.S. 26873", normativa_adicional: "D.S. N° 26873 (Sistema Nacional Único de Suministro), D.S. N° 115", atribuciones: "Regulación, control y fiscalización de fármacos.", descripcion: "Garantiza la calidad, eficacia y seguridad de los medicamentos y tecnologías en salud." },
-            { sigla: "AISEM", nombre: "Agencia de Infraestructura en Salud y Equipamiento Médico", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 3293 (24/08/2017)", normativa_adicional: "D.S. N° 3631 (Ampliación de funciones), D.S. N° 4201", atribuciones: "Ejecución de proyectos de hospitales e insumos médicos.", descripcion: "Encargada de construir, ampliar y equipar establecimientos de salud públicos." },
-            { sigla: "ASUSS", nombre: "Autoridad de Supervisión de la Seguridad Social de Corto Plazo", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 3561 (16/05/2018)", normativa_adicional: "D.S. N° 3722 (Reglamento), Ley N° 1189", atribuciones: "Fiscalización de las Cajas de Salud.", descripcion: "Controla y supervisa a los entes gestores de la seguridad social a corto plazo en Bolivia." },
-            { sigla: "CEASS", nombre: "Central de Abastecimiento y Suministros de Salud", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 3034 (28/12/2016)", normativa_adicional: "D.S. N° 4390 (Fortalecimiento institucional y compras estatales)", atribuciones: "Adquisición, almacenamiento y distribución de medicamentos.", descripcion: "Asegura el abastecimiento continuo de fármacos e insumos esenciales al sistema público." },
-            { sigla: "CENETROP", nombre: "Centro Nacional de Enfermedades Tropicales", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo de Creación", normativa_adicional: "D.S. N° 29601 (Modelo SAFCI y rol de institutos nacionales)", atribuciones: "Investigación, diagnóstico y control de patologías tropicales.", descripcion: "Centro de referencia nacional para el control de enfermedades endémicas y tropicales." },
-            { sigla: "ESCBBA", nombre: "Escuela de Salud Cochabamba", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Resolución Ministerial - Min. Salud", normativa_adicional: "Resolución Bi-Ministerial N° 001 (Educación y Salud)", atribuciones: "Formación de técnicos y personal auxiliar en salud.", descripcion: "Institución académica estatal para la capacitación técnica de recursos humanos en salud." },
-            { sigla: "ESLP", nombre: "Escuela de Salud La Paz", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Resolución Ministerial - Min. Salud", normativa_adicional: "Resolución Bi-Ministerial N° 001 (Educación y Salud)", atribuciones: "Formación académica y capacitación de personal.", descripcion: "Centro formativo estatal que capacita técnicos y auxiliares en diversas áreas médicas." },
-            { sigla: "IBC", nombre: "Instituto Boliviano de la Ceguera", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Ley del 22 de enero de 1957", normativa_adicional: "Ley N° 223 (Ley General para Personas con Discapacidad), D.S. N° 1893", atribuciones: "Protección, educación y rehabilitación de personas ciegas.", descripcion: "Entidad dedicada a la atención integral de la población con discapacidad visual de Bolivia." },
-            { sigla: "IGB", nombre: "Instituto Gastroenterológico del Bicentenario", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo (Plan de Hospitales)", normativa_adicional: "D.S. N° 3768 (Implementación de Hospitales de 4to Nivel)", atribuciones: "Atención médica especializada, investigación y docencia.", descripcion: "Hospital de altísima especialidad enfocado en patologías del sistema digestivo." },
-            { sigla: "INLASA", nombre: "Instituto Nacional de Laboratorios de Salud", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Resolución Suprema (20/08/1908)", normativa_adicional: "D.S. N° 29601 (Modelo SAFCI), D.S. N° 3113", atribuciones: "Análisis laboratoriales de referencia, biológicos.", descripcion: "Laboratorio de referencia nacional en control de calidad, inmunología y epidemiología." },
-            { sigla: "INSO", nombre: "Instituto Nacional de Salud Ocupacional", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo de Creación", normativa_adicional: "Ley General de Higiene y Seguridad Ocupacional", atribuciones: "Investigación, medicina del trabajo y prevención.", descripcion: "Protege la salud de los trabajadores mediante la prevención de enfermedades ocupacionales." },
-            { sigla: "LONABOL", nombre: "Lotería Nacional de Beneficencia y Salubridad", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Ley N° 060 (Lotería y Juegos de Azar)", normativa_adicional: "D.S. N° 2444 (Reglamento Ley 060), D.S. N° 2715", atribuciones: "Administración de juegos destinados a beneficencia.", descripcion: "Opera juegos y sorteos para recaudar fondos destinados a asistencia social y salud." },
-            { sigla: "UE-FNSE", nombre: "Unidad Ejecutora del Fondo Nacional de Solidaridad y Equidad", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo", normativa_adicional: "D.S. N° 1053, Ley N° 223 (Discapacidad), Ley N° 977 (Inserción Laboral)", atribuciones: "Ejecución de proyectos para personas con discapacidad.", descripcion: "Administra el fondo derivado de recortes a subsidios políticos, en favor de la inclusión." },
+            { sigla: "AGEMED", nombre: "Agencia Estatal de Medicamentos y Tecnologías en Salud", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Ley N° 1737 del Medicamento (17/12/1996) / D.S. N° 26873", normativa_adicional: "D.S. N° 115 (SNUS), D.S. N° 25235, Ley N° 1152 (SUS), D.S. N° 4452, D.S. N° 4694 (Lista Nacional de Medicamentos)", atribuciones: "Regulación, control y fiscalización de fármacos.", descripcion: "Garantiza la calidad, eficacia y seguridad de los medicamentos y tecnologías en salud." },
+            { sigla: "AISEM", nombre: "Agencia de Infraestructura en Salud y Equipamiento Médico", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 3293 (24/08/2017)", normativa_adicional: "D.S. N° 3631 (Ampliación de funciones), D.S. N° 4201, D.S. N° 4475, D.S. N° 4857, D.S. N° 5002", atribuciones: "Ejecución de proyectos de hospitales e insumos médicos.", descripcion: "Encargada de construir, ampliar y equipar establecimientos de salud públicos." },
+            { sigla: "ASUSS", nombre: "Autoridad de Supervisión de la Seguridad Social de Corto Plazo", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 3561 (16/05/2018)", normativa_adicional: "D.S. N° 3722 (Reglamento), Ley N° 1189 (Prioridad CNS), D.S. N° 3844, D.S. N° 4309, D.S. N° 4857", atribuciones: "Fiscalización, control y regulación de las Cajas de Salud.", descripcion: "Controla y supervisa a los entes gestores de la seguridad social a corto plazo en Bolivia." },
+            { sigla: "CEASS", nombre: "Central de Abastecimiento y Suministros de Salud", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 3034 (28/12/2016)", normativa_adicional: "D.S. N° 4390 (Fortalecimiento institucional y compras estatales), D.S. N° 0181 (SABS), D.S. N° 4452, D.S. N° 4857", atribuciones: "Adquisición, almacenamiento y distribución de medicamentos.", descripcion: "Asegura el abastecimiento continuo de fármacos e insumos esenciales al sistema público." },
+            { sigla: "CENETROP", nombre: "Centro Nacional de Enfermedades Tropicales", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "D.S. N° 11210 (1973) / Ley N° 1717", normativa_adicional: "D.S. N° 29601 (Modelo SAFCI), Ley N° 1152 (SUS), D.S. N° 4857, D.S. N° 4198", atribuciones: "Investigación, diagnóstico y control de patologías tropicales.", descripcion: "Centro de referencia nacional para el control de enfermedades endémicas y tropicales." },
+            { sigla: "ESCBBA", nombre: "Escuela de Salud Cochabamba", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Resolución Ministerial y Convenios del Ministerio de Salud", normativa_adicional: "Resolución Bi-Ministerial N° 001/2019 (Ministerios de Educación y Salud), D.S. N° 29601", atribuciones: "Formación de técnicos y personal auxiliar en salud.", descripcion: "Institución académica estatal para la capacitación técnica de recursos humanos en salud." },
+            { sigla: "ESLP", nombre: "Escuela de Salud La Paz", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Resolución Ministerial (M.S.D.)", normativa_adicional: "Resolución Bi-Ministerial N° 001/2019, Ley N° 070 (Avelino Siñani - Elizardo Pérez), D.S. N° 29601", atribuciones: "Formación académica y capacitación de personal técnico.", descripcion: "Centro formativo estatal que capacita técnicos y auxiliares en diversas áreas médicas." },
+            { sigla: "IBC", nombre: "Instituto Boliviano de la Ceguera", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Ley del 22 de enero de 1957", normativa_adicional: "Ley N° 223 (Ley General para Personas con Discapacidad), D.S. N° 1893, Ley N° 1678, D.S. N° 3437 (Carnetización), D.S. N° 4857", atribuciones: "Protección, educación y rehabilitación de personas ciegas.", descripcion: "Entidad dedicada a la atención integral de la población con discapacidad visual de Bolivia." },
+            { sigla: "IGB", nombre: "Instituto Gastroenterológico del Bicentenario", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "D.S. N° 3768 (Implementación de Hospitales de 4to Nivel)", normativa_adicional: "Ley N° 1152 (Sistema Único de Salud), D.S. N° 4475, D.S. N° 3293, Resoluciones Ministeriales (Gestión Hospitalaria)", atribuciones: "Atención médica altamente especializada, investigación y docencia.", descripcion: "Hospital de altísima especialidad enfocado en patologías del sistema digestivo." },
+            { sigla: "INLASA", nombre: "Instituto Nacional de Laboratorios de Salud", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Resolución Suprema (20/08/1908)", normativa_adicional: "D.S. N° 29601 (Modelo SAFCI), D.S. N° 3113, D.S. N° 4198, Ley N° 1152, D.S. N° 4857", atribuciones: "Análisis laboratoriales de referencia, producción de biológicos.", descripcion: "Laboratorio de referencia nacional en control de calidad, inmunología y epidemiología." },
+            { sigla: "INSO", nombre: "Instituto Nacional de Salud Ocupacional", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "D.S. N° 05886 (1961)", normativa_adicional: "Decreto Ley N° 16998 (Ley General de Higiene y Seguridad Ocupacional), D.S. N° 29601, Ley N° 1152", atribuciones: "Investigación, medicina del trabajo y prevención de riesgos laborales.", descripcion: "Protege la salud de los trabajadores mediante la prevención de enfermedades ocupacionales." },
+            { sigla: "LONABOL", nombre: "Lotería Nacional de Beneficencia y Salubridad", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Ley N° 060 de Juegos de Lotería y de Azar (25/11/2010)", normativa_adicional: "D.S. N° 2444 (Reglamento Ley 060), D.S. N° 2715, D.S. N° 24771, D.S. N° 4857", atribuciones: "Administración, organización y operación de juegos destinados a beneficencia.", descripcion: "Opera juegos y sorteos para recaudar fondos destinados a asistencia social y salud." },
+            { sigla: "UE-FNSE", nombre: "Unidad Ejecutora del Fondo Nacional de Solidaridad y Equidad", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 1053 (23/11/2011)", normativa_adicional: "Ley N° 223 (Discapacidad), Ley N° 977 (Inserción Laboral), D.S. N° 3437, D.S. N° 3169, D.S. N° 4857", atribuciones: "Ejecución de proyectos y programas para personas con discapacidad.", descripcion: "Administra el fondo derivado de aportes estatales, en favor de la inclusión social y laboral." },
 
             // Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía
-            { sigla: "ADECINE", nombre: "Agencia del Desarrollo del Cine y Audiovisual Bolivianos", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Ley N° 1134 (20/12/2018)", normativa_adicional: "D.S. N° 4127 (Reglamento Ley 1134)", atribuciones: "Fomento, distribución y preservación audiovisual.", descripcion: "Promueve y protege la industria y la producción cinematográfica nacional." },
-            { sigla: "CIAAAT", nombre: "Centro de Investigaciones Arqueológicas y Adm. de Tiwanaku", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Decreto Supremo N° 0814 (09/03/2011)", normativa_adicional: "Ley N° 530 (Patrimonio Cultural Boliviano), D.S. N° 2003", atribuciones: "Gestión, preservación e investigación arqueológica.", descripcion: "Administra y protege el Patrimonio Cultural de la Humanidad en el complejo Tiwanaku." },
-            { sigla: "OSN", nombre: "Orquesta Sinfónica Nacional", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Ley N° 2206 (18/05/2001)", normativa_adicional: "D.S. N° 26233 (Estructura Organizacional)", atribuciones: "Difusión de la música sinfónica y fomento musical.", descripcion: "Máxima institución estatal encargada de la interpretación y difusión de música académica." },
-            { sigla: "SEPMUD", nombre: "Servicio Plurinacional de la Mujer y de la Despatriarcalización", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Decreto Supremo N° 3774 (11/01/2019)", normativa_adicional: "Ley N° 348 (Ley para Garantizar a las Mujeres una Vida Libre de Violencia)", atribuciones: "Promoción de políticas contra la violencia y patriarcado.", descripcion: "Entidad dedicada a garantizar los derechos de las mujeres y desmontar el sistema patriarcal." }
+            { sigla: "ADECINE", nombre: "Agencia del Desarrollo del Cine y Audiovisual Bolivianos", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Ley N° 1134 del Cine y Arte Audiovisual (20/12/2018)", normativa_adicional: "D.S. N° 4127 (Reglamento Ley 1134), D.S. N° 4857, Ley N° 530 (Patrimonio)", atribuciones: "Fomento, distribución, regulación y preservación audiovisual.", descripcion: "Promueve y protege la industria y la producción cinematográfica nacional." },
+            { sigla: "CIAAAT", nombre: "Centro de Investigaciones Arqueológicas y Adm. de Tiwanaku", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Decreto Supremo N° 0814 (09/03/2011)", normativa_adicional: "Ley N° 530 (Patrimonio Cultural Boliviano), D.S. N° 2003, D.S. N° 1004, Ley N° 1098", atribuciones: "Gestión, preservación, investigación y administración arqueológica.", descripcion: "Administra y protege el Patrimonio Cultural de la Humanidad en el complejo arqueológico de Tiwanaku." },
+            { sigla: "OSN", nombre: "Orquesta Sinfónica Nacional", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Ley N° 2206 (18/05/2001)", normativa_adicional: "D.S. N° 26233 (Estructura Organizacional de la OSN), D.S. N° 0806, D.S. N° 4857", atribuciones: "Difusión de la música sinfónica y fomento artístico-musical.", descripcion: "Máxima institución estatal encargada de la interpretación y difusión de música académica y sinfónica." },
+            { sigla: "SEPMUD", nombre: "Servicio Plurinacional de la Mujer y de la Despatriarcalización “Ana María Romero”", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Decreto Supremo N° 3774 (11/01/2019)", normativa_adicional: "Ley N° 348 (Ley Integral para Garantizar a las Mujeres una Vida Libre de Violencia), D.S. N° 2145 (Reglamento Ley 348), Ley N° 243, D.S. N° 4650", atribuciones: "Promoción de políticas contra la violencia, equidad y despatriarcalización.", descripcion: "Entidad dedicada a garantizar los derechos de las mujeres, monitorear la Ley 348 y desmontar el sistema patriarcal." }
         ];
 
-        // Cargar desde localStorage (usamos _v2 para forzar la recarga con los nuevos campos) o usar la base de datos por defecto
-        let dbEntidades = JSON.parse(localStorage.getItem('entidades_bolivia_db_v2')) || defaultDbEntidades;
+        // Cargar desde localStorage (usamos _v3 para forzar la recarga con las nuevas normativas de Lexivox/Gaceta)
+        let dbEntidades = JSON.parse(localStorage.getItem('entidades_bolivia_db_v3')) || defaultDbEntidades;
 
         let entidadesActuales = [...dbEntidades];
         let ascendente = true;
 
         const grid = document.getElementById('entitiesGrid');
-        const searchInput = document.getElementById('searchInput');
-        const noResults = document.getElementById('noResults');
-        const countBadge = document.getElementById('countBadge');
-
-        // Función para renderizar las tarjetas
-        function renderEntities(entidades) {
-            grid.innerHTML = '';
-            countBadge.textContent = entidades.length;
-
-            if (entidades.length === 0) {
-                noResults.classList.remove('hidden');
-                return;
-            } else {
-                noResults.classList.add('hidden');
-            }
-
-            entidades.forEach(ent => {
-                const card = document.createElement('div');
-                card.className = 'bg-white rounded-xl shadow-md overflow-hidden card-hover border border-gray-100 flex flex-col';
-                
-                // Determinamos color de la etiqueta según sea descentralizada o desconcentrada
-                const tipoColor = ent.tipo.toLowerCase() === 'descentralizada' ? 'bg-blue-600' : 'bg-green-600';
-
+<!-- ... existing code ... -->
                 card.innerHTML = `
                     <div class="bg-gradient-to-r from-red-800 to-red-700 px-4 py-3 flex justify-between items-center text-white">
                         <h3 class="font-bold text-lg" title="${ent.nombre}">${ent.sigla}</h3>
@@ -217,86 +111,15 @@
         });
 
         // Función de ordenamiento
-        function sortEntities() {
-            entidadesActuales.sort((a, b) => {
-                if (a.sigla < b.sigla) return ascendente ? -1 : 1;
-                if (a.sigla > b.sigla) return ascendente ? 1 : -1;
-                return 0;
-            });
-            ascendente = !ascendente; // Cambiar dirección para el próximo clic
-            
-            // Cambiar icono de ordenamiento
-            const sortIcon = document.querySelector('.fa-sort-alpha-down, .fa-sort-alpha-up');
-            if (sortIcon) {
-                sortIcon.className = ascendente ? 'fas fa-sort-alpha-down mr-2' : 'fas fa-sort-alpha-up mr-2';
-            }
-            
-            renderEntities(entidadesActuales);
-        }
-
-        // Inicialización
-        // Ordenamos al inicio por defecto
-        sortEntities(); 
-
-        // --- FUNCIONALIDADES DE EXCEL (IMPORTAR / EXPORTAR) ---
-
-        // Función para exportar los datos actuales a Excel
-        function exportToExcel() {
-            // Convierte nuestro arreglo JSON a una hoja de Excel
-            const worksheet = XLSX.utils.json_to_sheet(dbEntidades);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Entidades_Bolivia");
-            
-            // Lanza la descarga automática del archivo
-            XLSX.writeFile(workbook, "Directorio_Entidades_Bolivia.xlsx");
-        }
-
-        // Event listener para cuando el usuario seleccione un archivo Excel
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    
-                    // Seleccionar la primera hoja de trabajo
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    
-                    // Convertir de vuelta a JSON
-                    const json = XLSX.utils.sheet_to_json(worksheet);
-                    
+<!-- ... existing code ... -->
                     // Validación mínima para asegurarnos que se parece a nuestra base de datos
                     if (json.length > 0 && ('sigla' in json[0]) && ('nombre' in json[0])) {
                         dbEntidades = json;
                         entidadesActuales = [...dbEntidades];
                         
-                        // Guardar en el navegador (usando la nueva versión v2)
-                        localStorage.setItem('entidades_bolivia_db_v2', JSON.stringify(dbEntidades));
+                        // Guardar en el navegador (usando la nueva versión v3)
+                        localStorage.setItem('entidades_bolivia_db_v3', JSON.stringify(dbEntidades));
                         
                         // Limpiar búsqueda y renderizar la nueva información
                         searchInput.value = '';
-                        renderEntities(entidadesActuales);
-                        
-                        alert('¡Base de datos actualizada correctamente con ' + json.length + ' entidades!');
-                    } else {
-                        alert('Error: El formato de columnas no es válido. Te recomendamos usar el botón "Exportar" primero para tener una plantilla base.');
-                    }
-                } catch (error) {
-                    console.error("Error procesando Excel:", error);
-                    alert('Hubo un error leyendo el archivo Excel. Revisa que no esté corrupto.');
-                }
-                
-                // Reiniciamos el input por si el usuario quiere subir el mismo archivo después
-                document.getElementById('fileInput').value = '';
-            };
-            
-            reader.readAsArrayBuffer(file);
-        });
-
-    </script>
-</body>
-</html>
+<!-- ... existing code ... -->
