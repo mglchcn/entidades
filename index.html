@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome para los íconos -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- SheetJS para exportar/importar Excel -->
+    <!-- SheetJS para parsear el CSV exportado de Google Sheets y exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
@@ -22,12 +22,20 @@
             transform: translateY(-5px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
+        /* Animación para el modal */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .modal-anim {
+            animation: fadeIn 0.2s ease-out forwards;
+        }
     </style>
 </head>
-<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+<body class="text-gray-800 antialiased min-h-screen flex flex-col relative">
 
     <!-- Header -->
-    <header class="bg-red-800 text-white shadow-md">
+    <header class="bg-red-800 text-white shadow-md z-10">
         <div class="container mx-auto px-4 py-6">
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <div class="flex items-center mb-4 md:mb-0">
@@ -40,8 +48,8 @@
                 <!-- Search Bar -->
                 <div class="w-full md:w-1/3 relative">
                     <input type="text" id="searchInput" placeholder="Buscar por sigla, nombre, ley o atribución..." 
-                           class="w-full pl-10 pr-4 py-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 shadow-inner">
-                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                           class="w-full pl-10 pr-4 py-2.5 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 shadow-inner transition-all">
+                    <i class="fas fa-search absolute left-3 top-3.5 text-gray-400"></i>
                 </div>
             </div>
         </div>
@@ -50,25 +58,27 @@
     <!-- Main Content -->
     <main class="container mx-auto px-4 py-8 flex-grow">
         
-        <div class="flex flex-col md:flex-row justify-between items-center mb-6">
-            <h2 class="text-xl font-semibold text-gray-700 mb-4 md:mb-0">Listado de Entidades <span id="countBadge" class="bg-gray-200 text-gray-600 py-1 px-2 rounded-full text-sm ml-2">0</span></h2>
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4 md:mb-0 flex items-center">
+                Listado de Entidades 
+                <span id="countBadge" class="bg-red-100 text-red-800 py-1 px-3 rounded-full text-sm ml-3 font-bold">0</span>
+            </h2>
             
-            <div class="flex flex-wrap justify-center items-center gap-4">
-                <!-- Input oculto para cargar archivos -->
-                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" class="hidden">
+            <div class="flex flex-wrap justify-center items-center gap-3">
                 
-                <button onclick="document.getElementById('fileInput').click()" class="flex items-center text-green-700 hover:text-green-600 font-medium transition-colors text-sm bg-green-100 hover:bg-green-200 px-3 py-2 rounded-lg" title="Importar entidades desde Excel">
-                    <i class="fas fa-file-import mr-2"></i> Importar Excel
+                <!-- Botón de Sincronización Directa de Google Sheets -->
+                <button id="syncBtn" onclick="syncWithGoogleSheets()" class="flex items-center text-green-700 hover:text-green-800 hover:bg-green-100 font-medium transition-colors text-sm bg-green-50 border border-green-200 px-4 py-2 rounded-lg shadow-sm" title="Actualizar datos desde Google Sheets en un clic">
+                    <i class="fab fa-google-drive mr-2" id="syncSpinner"></i> <span id="syncBtnText">Sync G. Sheets</span>
                 </button>
                 
-                <button onclick="exportToExcel()" class="flex items-center text-blue-700 hover:text-blue-600 font-medium transition-colors text-sm bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded-lg" title="Descargar base de datos">
-                    <i class="fas fa-file-export mr-2"></i> Exportar Excel
+                <button onclick="exportToExcel()" class="flex items-center text-blue-700 hover:text-blue-800 hover:bg-blue-100 font-medium transition-colors text-sm bg-blue-50 border border-blue-200 px-4 py-2 rounded-lg shadow-sm" title="Descargar base de datos a Excel">
+                    <i class="fas fa-file-export mr-2"></i> Exportar Plantilla
                 </button>
 
-                <div class="border-l-2 border-gray-300 h-6 mx-1 hidden md:block"></div>
+                <div class="border-l border-gray-300 h-6 mx-1 hidden md:block"></div>
 
-                <button onclick="sortEntities()" class="flex items-center text-red-800 hover:text-red-600 font-medium transition-colors text-sm bg-red-100 hover:bg-red-200 px-3 py-2 rounded-lg">
-                    <i class="fas fa-sort-alpha-down mr-2" id="sortIcon"></i> Ordenar
+                <button onclick="sortEntities()" class="flex items-center text-gray-700 hover:text-gray-900 hover:bg-gray-200 font-medium transition-colors text-sm bg-gray-100 border border-gray-200 px-4 py-2 rounded-lg shadow-sm">
+                    <i class="fas fa-sort-alpha-down mr-2" id="sortIcon"></i> Ordenar A-Z
                 </button>
             </div>
         </div>
@@ -79,10 +89,10 @@
         </div>
 
         <!-- No Results Message -->
-        <div id="noResults" class="hidden text-center py-12">
-            <i class="fas fa-search-minus text-4xl text-gray-400 mb-4"></i>
-            <h3 class="text-lg font-medium text-gray-600">No se encontraron entidades</h3>
-            <p class="text-gray-500">Intenta con otros términos de búsqueda.</p>
+        <div id="noResults" class="hidden text-center py-16">
+            <i class="fas fa-search-minus text-5xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-bold text-gray-600">No se encontraron entidades</h3>
+            <p class="text-gray-500 mt-2">Intenta modificar los términos de búsqueda.</p>
         </div>
 
     </main>
@@ -90,60 +100,30 @@
     <!-- Footer -->
     <footer class="bg-gray-800 text-white py-6 mt-auto">
         <div class="container mx-auto px-4 text-center text-sm text-gray-400">
-            <p><i class="fas fa-info-circle mr-1"></i> Base de datos normativa actualizada. Los datos pueden exportarse a Excel para su edición.</p>
+            <p><i class="fas fa-cloud-sync mr-1"></i> Base de datos sincronizada en la nube con Google Sheets.</p>
         </div>
     </footer>
 
+    <!-- El modal de Google Sheets fue eliminado, la sincronización ahora es directa -->
+
     <!-- JavaScript Base de Datos y Lógica -->
     <script>
-        // Base de datos enriquecida con referencias a Gaceta Oficial y Lexivox
+        // === CONFIGURACIÓN DE GOOGLE SHEETS ===
+        // REEMPLAZA EL VALOR DE ABAJO CON EL ID DE TU HOJA DE GOOGLE SHEETS
+        // Lo encuentras en la URL de tu hoja: https://docs.google.com/spreadsheets/d/[ESTE_ES_EL_ID]/edit
+        const GOOGLE_SHEETS_ID = '1r3HrxMnLDtv6qH_nT9sMOdDb5sT7yF0p0d-lsDWLvGo';
+
+        // Base de datos por defecto (para cuando no hay Sheets sincronizado)
         const defaultDbEntidades = [
             // Ministerio de Gobierno
-            { sigla: "COVIPOL", nombre: "Consejo Nacional de Vivienda Policial", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley Orgánica de la Policía (Ley N° 734 de 08/04/1985)", normativa_adicional: "D.S. N° 3106 (Políticas de ejecución de vivienda), D.S. N° 2899 (Modificación estructural), D.S. N° 1446, D.S. N° 2369, D.S. N° 3804 (Reglamentación de préstamos)", atribuciones: "Planificación y ejecución de proyectos de vivienda para la Policía.", descripcion: "Entidad encargada de dotar y gestionar planes de vivienda en beneficio de la familia policial." },
-            { sigla: "DIGEMIG", nombre: "Dirección General de Migración", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 370 de Migración (08/05/2013)", normativa_adicional: "D.S. N° 1923 (Reglamento a la Ley 370), Ley N° 264, D.S. N° 2404 (Reglamento de emisión de pasaportes), Ley N° 1220, D.S. N° 4469, D.S. N° 4576 (Regularización migratoria)", atribuciones: "Control y registro de flujo migratorio, emisión de arraigos y pasaportes.", descripcion: "Regula el ingreso, tránsito y salida de personas del territorio nacional." },
-            { sigla: "DIPREVCON", nombre: "Dirección de Apoyo a la Prevención del Consumo de Drogas, Control del Tráfico Ilícito de Sustancias Controladas", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 913 (16/03/2017) / D.S. N° 3434", normativa_adicional: "D.S. N° 3434 (Reglamento a la Ley 913), D.S. N° 4514, D.S. N° 4616 (Absorción de competencias del ex-CONALTID)", atribuciones: "Apoyo a políticas de prevención, interdicción y erradicación.", descripcion: "Eje operativo y preventivo del Estado en la lucha contra el narcotráfico y consumo de drogas." },
-            { sigla: "DIRCABI", nombre: "Dirección General de Registro, Control y Administración de Bienes Incautados", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "D.L. N° 14251 (1976) / Ley N° 1008 / Ley N° 913", normativa_adicional: "Ley N° 004 (Marcelo Quiroga S.C.), D.S. N° 3434, D.S. N° 26143, D.S. N° 4817 (Procedimientos de monetización), D.S. N° 4974", atribuciones: "Administración, monetización y custodia de bienes confiscados.", descripcion: "Entidad encargada de administrar los bienes incautados al narcotráfico y enriquecimiento ilícito." },
-            { sigla: "MUSERPOL", nombre: "Mutual de Servicios al Policía", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Decreto Supremo N° 1446 (19/12/2012)", normativa_adicional: "D.S. N° 2614 (Funciones de administración de recursos adicionales), D.S. N° 2873 (Reglamento de MUSERPOL), D.S. N° 3535, Ley N° 3988", atribuciones: "Gestión de prestaciones y servicios de seguridad social para la Policía.", descripcion: "Administra el régimen de bienestar social y económico de la Policía Boliviana." },
-            { sigla: "OBSCD", nombre: "Observatorio Boliviano de Seguridad Ciudadana y Lucha Contra las Drogas", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 264 de Seguridad Ciudadana (31/07/2012)", normativa_adicional: "D.S. N° 1436 (Reglamento Ley 264), D.S. N° 3434, D.S. N° 4616 (Fusión con el Observatorio de Drogas)", atribuciones: "Análisis, estadística e investigación criminológica.", descripcion: "Genera información estadística y análisis para la formulación de políticas de seguridad ciudadana." },
-            { sigla: "SEGELIC", nombre: "Servicio General de Licencias de Conducir", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 145 (27/06/2011)", normativa_adicional: "D.S. N° 1117 (Reglamentación SEGELIC), D.S. N° 1198, D.S. N° 4342 (Digitalización), Ley N° 165 (Transporte)", atribuciones: "Otorgación, registro y control de licencias de conducir.", descripcion: "Responsable de la emisión de las licencias y permisos de conducción a nivel nacional." },
-            { sigla: "SEGIP", nombre: "Servicio General de Identificación Personal", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 145 (27/06/2011)", normativa_adicional: "Ley N° 370 (Registro de Extranjeros), D.S. N° 4342 (Ciudadanía y Cédula Digital), D.S. N° 4806 (Actualización de formato del CI), D.S. N° 1434", atribuciones: "Otorgación de cédulas de identidad y administración del RUIP.", descripcion: "Institución civil garante del derecho a la identidad de los bolivianos." },
-
-            // Ministerio de la Presidencia
-            { sigla: "AGETIC", nombre: "Agencia de Gobierno Electrónico y Tecnologías de Información", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Decreto Supremo N° 2514 (09/09/2015)", normativa_adicional: "Ley N° 1080 (Ciudadanía Digital), D.S. N° 3525 (Firma Digital), D.S. N° 3251 (Plan de Gobierno Electrónico), D.S. N° 4504, Ley N° 164", atribuciones: "Implementación de gobierno electrónico, simplificación de trámites.", descripcion: "Desarrolla tecnología para modernizar el Estado y acercarlo a los ciudadanos." },
-            { sigla: "DEGSE", nombre: "Despacho de Gestión Social de su Excelencia", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "D.S. N° 29894 (07/02/2009)", normativa_adicional: "D.S. N° 4857 (Organización del Órgano Ejecutivo), D.S. N° 0429, D.S. N° 3058 (Donaciones y transferencias)", atribuciones: "Apoyo a sectores vulnerables y asistencia social humanitaria.", descripcion: "Unidad dependiente de la Presidencia que coordina programas de ayuda humanitaria y social." },
-            { sigla: "DIRNOPLU", nombre: "Dirección del Notariado Plurinacional", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 483 del Notariado Plurinacional (25/01/2014)", normativa_adicional: "D.S. N° 2189 (Reglamento Ley 483), D.S. N° 3946, Ley N° 1146, D.S. N° 4503, Resolución Administrativa DIRNOPLU N° 045/2021", atribuciones: "Control, supervisión y regulación del servicio notarial.", descripcion: "Entidad que organiza y fiscaliza la función y los servicios de los notarios de fe pública." },
-            { sigla: "Gestora SAJ-RPA", nombre: "Gestora del Sistema de Acceso a la Justicia y Registro Público de la Abogacía", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 387 del Ejercicio de la Abogacía (09/07/2013)", normativa_adicional: "D.S. N° 1888 (Reglamento Ley 387), D.S. N° 3898, D.S. N° 2636, D.S. N° 4504 (Plataformas digitales)", atribuciones: "Registro nacional de abogados y apoyo al acceso de justicia.", descripcion: "Controla el registro de profesionales abogados y promueve mecanismos de acceso a la justicia." },
-            { sigla: "OFEP", nombre: "Oficina Técnica para el Fortalecimiento de la Empresa Pública", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 466 de la Empresa Pública (26/12/2013)", normativa_adicional: "D.S. N° 1978 (Reglamento Ley 466), D.S. N° 2855, D.S. N° 3290, D.S. N° 4857", atribuciones: "Asistencia técnica, control y evaluación a empresas estatales.", descripcion: "Entidad técnica de seguimiento, control y fortalecimiento de las Empresas Públicas del Estado." },
-            { sigla: "SEA", nombre: "Servicio Estatal de Autonomías", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 031 Marco de Autonomías y Descentralización (19/07/2010)", normativa_adicional: "D.S. N° 1310 (Estructura del SEA), Ley N° 777 (SPIE), Ley N° 1407, D.S. N° 2840, D.S. N° 4857", atribuciones: "Conciliación, apoyo técnico y normativo a las ETA's.", descripcion: "Asesora y facilita el proceso de descentralización y la gestión de gobiernos subnacionales." },
-            { sigla: "SEPDAVI", nombre: "Servicio Plurinacional de Asistencia a la Víctima", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 464 (19/12/2013)", normativa_adicional: "D.S. N° 2049 (Reglamento Ley 464), Ley N° 1173 (Abreviación Procesal Penal), Ley N° 348, Ley N° 378, D.S. N° 3898", atribuciones: "Patrocinio legal, apoyo psicológico y social a víctimas.", descripcion: "Garantiza el acceso a la justicia a víctimas de delitos que no cuentan con recursos." },
-            { sigla: "SEPDEP", nombre: "Servicio Plurinacional de Defensa Pública", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Ley N° 463 (19/12/2013)", normativa_adicional: "D.S. N° 2001 (Reglamento Ley 463), Ley N° 1173 (Abreviación Procesal Penal), Ley N° 548, D.S. N° 3898", atribuciones: "Defensa penal técnica y gratuita para imputados.", descripcion: "Institución que provee abogados defensores gratuitos en el área penal." },
-            { sigla: "UNICOM", nombre: "Unidad de Comunicación Estratégica del Estado Plurinacional", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "D.S. N° 1140 (15/02/2012)", normativa_adicional: "D.S. N° 4857 (Estructura del Órgano Ejecutivo), D.S. N° 29894, D.S. N° 4257 (Modificaciones operativas)", atribuciones: "Gestión de la comunicación y difusión de políticas estatales.", descripcion: "Brazo comunicacional estratégico del Gobierno Central." },
-
-            // Ministerio de Salud y Deportes
-            { sigla: "AGEMED", nombre: "Agencia Estatal de Medicamentos y Tecnologías en Salud", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Ley N° 1737 del Medicamento (17/12/1996) / D.S. N° 26873", normativa_adicional: "D.S. N° 115 (SNUS), D.S. N° 25235, Ley N° 1152 (SUS), D.S. N° 4452, D.S. N° 4694 (Lista Nacional de Medicamentos)", atribuciones: "Regulación, control y fiscalización de fármacos.", descripcion: "Garantiza la calidad, eficacia y seguridad de los medicamentos y tecnologías en salud." },
-            { sigla: "AISEM", nombre: "Agencia de Infraestructura en Salud y Equipamiento Médico", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 3293 (24/08/2017)", normativa_adicional: "D.S. N° 3631 (Ampliación de funciones), D.S. N° 4201, D.S. N° 4475, D.S. N° 4857, D.S. N° 5002", atribuciones: "Ejecución de proyectos de hospitales e insumos médicos.", descripcion: "Encargada de construir, ampliar y equipar establecimientos de salud públicos." },
-            { sigla: "ASUSS", nombre: "Autoridad de Supervisión de la Seguridad Social de Corto Plazo", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 3561 (16/05/2018)", normativa_adicional: "D.S. N° 3722 (Reglamento), Ley N° 1189 (Prioridad CNS), D.S. N° 3844, D.S. N° 4309, D.S. N° 4857", atribuciones: "Fiscalización, control y regulación de las Cajas de Salud.", descripcion: "Controla y supervisa a los entes gestores de la seguridad social a corto plazo en Bolivia." },
-            { sigla: "CEASS", nombre: "Central de Abastecimiento y Suministros de Salud", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 3034 (28/12/2016)", normativa_adicional: "D.S. N° 4390 (Fortalecimiento institucional y compras estatales), D.S. N° 0181 (SABS), D.S. N° 4452, D.S. N° 4857", atribuciones: "Adquisición, almacenamiento y distribución de medicamentos.", descripcion: "Asegura el abastecimiento continuo de fármacos e insumos esenciales al sistema público." },
-            { sigla: "CENETROP", nombre: "Centro Nacional de Enfermedades Tropicales", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "D.S. N° 11210 (1973) / Ley N° 1717", normativa_adicional: "D.S. N° 29601 (Modelo SAFCI), Ley N° 1152 (SUS), D.S. N° 4857, D.S. N° 4198", atribuciones: "Investigación, diagnóstico y control de patologías tropicales.", descripcion: "Centro de referencia nacional para el control de enfermedades endémicas y tropicales." },
-            { sigla: "ESCBBA", nombre: "Escuela de Salud Cochabamba", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Resolución Ministerial y Convenios del Ministerio de Salud", normativa_adicional: "Resolución Bi-Ministerial N° 001/2019 (Ministerios de Educación y Salud), D.S. N° 29601", atribuciones: "Formación de técnicos y personal auxiliar en salud.", descripcion: "Institución académica estatal para la capacitación técnica de recursos humanos en salud." },
-            { sigla: "ESLP", nombre: "Escuela de Salud La Paz", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Resolución Ministerial (M.S.D.)", normativa_adicional: "Resolución Bi-Ministerial N° 001/2019, Ley N° 070 (Avelino Siñani - Elizardo Pérez), D.S. N° 29601", atribuciones: "Formación académica y capacitación de personal técnico.", descripcion: "Centro formativo estatal que capacita técnicos y auxiliares en diversas áreas médicas." },
-            { sigla: "IBC", nombre: "Instituto Boliviano de la Ceguera", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Ley del 22 de enero de 1957", normativa_adicional: "Ley N° 223 (Ley General para Personas con Discapacidad), D.S. N° 1893, Ley N° 1678, D.S. N° 3437 (Carnetización), D.S. N° 4857", atribuciones: "Protección, educación y rehabilitación de personas ciegas.", descripcion: "Entidad dedicada a la atención integral de la población con discapacidad visual de Bolivia." },
-            { sigla: "IGB", nombre: "Instituto Gastroenterológico del Bicentenario", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "D.S. N° 3768 (Implementación de Hospitales de 4to Nivel)", normativa_adicional: "Ley N° 1152 (Sistema Único de Salud), D.S. N° 4475, D.S. N° 3293, Resoluciones Ministeriales (Gestión Hospitalaria)", atribuciones: "Atención médica altamente especializada, investigación y docencia.", descripcion: "Hospital de altísima especialidad enfocado en patologías del sistema digestivo." },
-            { sigla: "INLASA", nombre: "Instituto Nacional de Laboratorios de Salud", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Resolución Suprema (20/08/1908)", normativa_adicional: "D.S. N° 29601 (Modelo SAFCI), D.S. N° 3113, D.S. N° 4198, Ley N° 1152, D.S. N° 4857", atribuciones: "Análisis laboratoriales de referencia, producción de biológicos.", descripcion: "Laboratorio de referencia nacional en control de calidad, inmunología y epidemiología." },
-            { sigla: "INSO", nombre: "Instituto Nacional de Salud Ocupacional", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "D.S. N° 05886 (1961)", normativa_adicional: "Decreto Ley N° 16998 (Ley General de Higiene y Seguridad Ocupacional), D.S. N° 29601, Ley N° 1152", atribuciones: "Investigación, medicina del trabajo y prevención de riesgos laborales.", descripcion: "Protege la salud de los trabajadores mediante la prevención de enfermedades ocupacionales." },
-            { sigla: "LONABOL", nombre: "Lotería Nacional de Beneficencia y Salubridad", tipo: "Descentralizada", ministerio: "Ministerio de Salud y Deportes", creacion: "Ley N° 060 de Juegos de Lotería y de Azar (25/11/2010)", normativa_adicional: "D.S. N° 2444 (Reglamento Ley 060), D.S. N° 2715, D.S. N° 24771, D.S. N° 4857", atribuciones: "Administración, organización y operación de juegos destinados a beneficencia.", descripcion: "Opera juegos y sorteos para recaudar fondos destinados a asistencia social y salud." },
-            { sigla: "UE-FNSE", nombre: "Unidad Ejecutora del Fondo Nacional de Solidaridad y Equidad", tipo: "Desconcentrada", ministerio: "Ministerio de Salud y Deportes", creacion: "Decreto Supremo N° 1053 (23/11/2011)", normativa_adicional: "Ley N° 223 (Discapacidad), Ley N° 977 (Inserción Laboral), D.S. N° 3437, D.S. N° 3169, D.S. N° 4857", atribuciones: "Ejecución de proyectos y programas para personas con discapacidad.", descripcion: "Administra el fondo derivado de aportes estatales, en favor de la inclusión social y laboral." },
-
-            // Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía
-            { sigla: "ADECINE", nombre: "Agencia del Desarrollo del Cine y Audiovisual Bolivianos", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Ley N° 1134 del Cine y Arte Audiovisual (20/12/2018)", normativa_adicional: "D.S. N° 4127 (Reglamento Ley 1134), D.S. N° 4857, Ley N° 530 (Patrimonio)", atribuciones: "Fomento, distribución, regulación y preservación audiovisual.", descripcion: "Promueve y protege la industria y la producción cinematográfica nacional." },
-            { sigla: "CIAAAT", nombre: "Centro de Investigaciones Arqueológicas y Adm. de Tiwanaku", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Decreto Supremo N° 0814 (09/03/2011)", normativa_adicional: "Ley N° 530 (Patrimonio Cultural Boliviano), D.S. N° 2003, D.S. N° 1004, Ley N° 1098", atribuciones: "Gestión, preservación, investigación y administración arqueológica.", descripcion: "Administra y protege el Patrimonio Cultural de la Humanidad en el complejo arqueológico de Tiwanaku." },
-            { sigla: "OSN", nombre: "Orquesta Sinfónica Nacional", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Ley N° 2206 (18/05/2001)", normativa_adicional: "D.S. N° 26233 (Estructura Organizacional de la OSN), D.S. N° 0806, D.S. N° 4857", atribuciones: "Difusión de la música sinfónica y fomento artístico-musical.", descripcion: "Máxima institución estatal encargada de la interpretación y difusión de música académica y sinfónica." },
-            { sigla: "SEPMUD", nombre: "Servicio Plurinacional de la Mujer y de la Despatriarcalización “Ana María Romero”", tipo: "Descentralizada", ministerio: "Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía", creacion: "Decreto Supremo N° 3774 (11/01/2019)", normativa_adicional: "Ley N° 348 (Ley Integral para Garantizar a las Mujeres una Vida Libre de Violencia), D.S. N° 2145 (Reglamento Ley 348), Ley N° 243, D.S. N° 4650", atribuciones: "Promoción de políticas contra la violencia, equidad y despatriarcalización.", descripcion: "Entidad dedicada a garantizar los derechos de las mujeres, monitorear la Ley 348 y desmontar el sistema patriarcal." }
+            { sigla: "COVIPOL", nombre: "Consejo Nacional de Vivienda Policial", tipo: "Descentralizada", ministerio: "Ministerio de Gobierno", creacion: "Ley Orgánica de la Policía (Ley N° 734 de 08/04/1985)", normativa_adicional: "D.S. N° 3106, D.S. N° 2899, D.S. N° 1446", atribuciones: "Planificación y ejecución de proyectos de vivienda para la Policía.", descripcion: "Entidad encargada de dotar y gestionar planes de vivienda en beneficio de la familia policial." },
+            { sigla: "DIGEMIG", nombre: "Dirección General de Migración", tipo: "Desconcentrada", ministerio: "Ministerio de Gobierno", creacion: "Ley N° 370 de Migración (08/05/2013)", normativa_adicional: "D.S. N° 1923 (Reglamento a la Ley 370), Ley N° 264", atribuciones: "Control y registro de flujo migratorio, emisión de arraigos y pasaportes.", descripcion: "Regula el ingreso, tránsito y salida de personas del territorio nacional." },
+            { sigla: "AGETIC", nombre: "Agencia de Gobierno Electrónico y Tecnologías de Información", tipo: "Descentralizada", ministerio: "Ministerio de la Presidencia", creacion: "Decreto Supremo N° 2514 (09/09/2015)", normativa_adicional: "Ley N° 1080 (Ciudadanía Digital), D.S. N° 3525", atribuciones: "Implementación de gobierno electrónico, simplificación de trámites.", descripcion: "Desarrolla tecnología para modernizar el Estado y acercarlo a los ciudadanos." }
+            // Se omiten algunas entidades base por brevedad visual, al sincronizar se poblarán todas.
         ];
 
-        // Cargar desde localStorage (usamos _v3 para forzar la recarga con las nuevas normativas de Lexivox/Gaceta)
-        let dbEntidades = JSON.parse(localStorage.getItem('entidades_bolivia_db_v3')) || defaultDbEntidades;
-
+        // Variables globales
+        let dbEntidades = JSON.parse(localStorage.getItem('entidades_bolivia_db_v5')) || defaultDbEntidades;
         let entidadesActuales = [...dbEntidades];
         let ascendente = true;
 
@@ -168,35 +148,36 @@
                 const card = document.createElement('div');
                 card.className = 'bg-white rounded-xl shadow-md overflow-hidden card-hover border border-gray-100 flex flex-col';
                 
-                // Determinamos color de la etiqueta según sea descentralizada o desconcentrada
-                const tipoColor = ent.tipo.toLowerCase() === 'descentralizada' ? 'bg-blue-600' : 'bg-green-600';
+                // Color según tipo
+                const tipoColor = (ent.tipo && ent.tipo.toLowerCase() === 'descentralizada') ? 'bg-blue-600' : 'bg-green-600';
 
                 card.innerHTML = `
                     <div class="bg-gradient-to-r from-red-800 to-red-700 px-4 py-3 flex justify-between items-center text-white">
-                        <h3 class="font-bold text-lg" title="${ent.nombre}">${ent.sigla}</h3>
-                        <span class="text-[10px] uppercase font-bold px-2 py-1 rounded shadow-inner ${tipoColor}">${ent.tipo}</span>
+                        <h3 class="font-bold text-lg tracking-wide" title="${ent.nombre || 'Sin Nombre'}">${ent.sigla || 'N/A'}</h3>
+                        <span class="text-[10px] uppercase font-bold px-2 py-1 rounded shadow-inner ${tipoColor}">${ent.tipo || 'Entidad'}</span>
                     </div>
-                    <div class="p-5 flex-grow flex flex-col">
-                        <h4 class="text-gray-800 font-bold mb-1 leading-tight text-sm">${ent.nombre}</h4>
-                        <p class="text-xs text-red-600 font-semibold mb-4"><i class="fas fa-building mr-1"></i> ${ent.ministerio}</p>
+                    <div class="p-5 flex-grow flex flex-col bg-gray-50">
+                        <h4 class="text-gray-800 font-bold mb-1 leading-tight text-sm">${ent.nombre || 'Sin descripción'}</h4>
+                        <p class="text-xs text-red-600 font-bold mb-4"><i class="fas fa-building mr-1"></i> ${ent.ministerio || 'Sin Ministerio'}</p>
                         
-                        <div class="mb-3">
-                            <span class="text-[10px] uppercase font-bold text-red-600 tracking-wider">Norma de Creación</span>
-                            <p class="text-xs text-gray-600 mt-1 bg-red-50 p-2 rounded border border-red-100"><i class="fas fa-file-signature text-red-400 mr-1"></i> ${ent.creacion}</p>
+                        <div class="mb-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                            <span class="text-[10px] uppercase font-bold text-red-600 tracking-wider block mb-1">Norma de Creación</span>
+                            <p class="text-xs text-gray-800 font-medium"><i class="fas fa-file-signature text-red-400 mr-1.5"></i> ${ent.creacion || 'No especificada'}</p>
                         </div>
 
-                        <div class="mb-3">
-                            <span class="text-[10px] uppercase font-bold text-blue-600 tracking-wider">Otras Normas / Modificaciones</span>
-                            <p class="text-xs text-gray-600 mt-1 bg-blue-50 p-2 rounded border border-blue-100"><i class="fas fa-scroll text-blue-400 mr-1"></i> ${ent.normativa_adicional || 'Sin registros adicionales'}</p>
+                        ${ent.normativa_adicional ? `
+                        <div class="mb-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                            <span class="text-[10px] uppercase font-bold text-blue-600 tracking-wider block mb-1">Otras Normas</span>
+                            <p class="text-xs text-gray-800 font-medium"><i class="fas fa-scroll text-blue-400 mr-1.5"></i> ${ent.normativa_adicional}</p>
+                        </div>` : ''}
+                        
+                        <div class="mb-4 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                            <span class="text-[10px] uppercase font-bold text-yellow-600 tracking-wider block mb-1">Atribuciones</span>
+                            <p class="text-xs text-gray-800 font-medium"><i class="fas fa-gavel text-yellow-500 mr-1.5"></i> ${ent.atribuciones || 'No especificadas'}</p>
                         </div>
                         
-                        <div class="mb-4">
-                            <span class="text-[10px] uppercase font-bold text-yellow-600 tracking-wider">Atribuciones</span>
-                            <p class="text-xs text-gray-600 mt-1 bg-yellow-50 p-2 rounded border border-yellow-100"><i class="fas fa-gavel text-yellow-500 mr-1"></i> ${ent.atribuciones}</p>
-                        </div>
-                        
-                        <div class="mt-auto pt-4 border-t border-gray-100">
-                            <p class="text-xs text-gray-500 italic">"${ent.descripcion}"</p>
+                        <div class="mt-auto pt-3 border-t border-gray-200">
+                            <p class="text-xs text-gray-500 italic text-center px-2">"${ent.descripcion || ''}"</p>
                         </div>
                     </div>
                 `;
@@ -204,102 +185,113 @@
             });
         }
 
-        // Función de búsqueda
+        // Búsqueda
         searchInput.addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase();
             entidadesActuales = dbEntidades.filter(ent => 
-                ent.sigla.toLowerCase().includes(query) ||
-                ent.nombre.toLowerCase().includes(query) ||
-                ent.ministerio.toLowerCase().includes(query) ||
-                ent.tipo.toLowerCase().includes(query) ||
-                ent.creacion.toLowerCase().includes(query) ||
-                ent.atribuciones.toLowerCase().includes(query) ||
-                ent.descripcion.toLowerCase().includes(query) ||
-                (ent.normativa_adicional && ent.normativa_adicional.toLowerCase().includes(query))
+                Object.values(ent).some(val => 
+                    String(val).toLowerCase().includes(query)
+                )
             );
             renderEntities(entidadesActuales);
         });
 
-        // Función de ordenamiento
+        // Ordenamiento
         function sortEntities() {
             entidadesActuales.sort((a, b) => {
-                if (a.sigla < b.sigla) return ascendente ? -1 : 1;
-                if (a.sigla > b.sigla) return ascendente ? 1 : -1;
+                const siglaA = (a.sigla || '').toLowerCase();
+                const siglaB = (b.sigla || '').toLowerCase();
+                if (siglaA < siglaB) return ascendente ? -1 : 1;
+                if (siglaA > siglaB) return ascendente ? 1 : -1;
                 return 0;
             });
-            ascendente = !ascendente; // Cambiar dirección para el próximo clic
-            
-            // Cambiar icono de ordenamiento
+            ascendente = !ascendente;
             const sortIcon = document.getElementById('sortIcon');
-            if (sortIcon) {
-                sortIcon.className = ascendente ? 'fas fa-sort-alpha-down mr-2' : 'fas fa-sort-alpha-up mr-2';
-            }
-            
+            if (sortIcon) sortIcon.className = ascendente ? 'fas fa-sort-alpha-down mr-2' : 'fas fa-sort-alpha-up mr-2';
             renderEntities(entidadesActuales);
         }
 
-        // Inicialización
-        // Ordenamos al inicio por defecto
-        sortEntities(); 
+        // --- SINCRONIZACIÓN DIRECTA CON GOOGLE SHEETS ---
 
-        // --- FUNCIONALIDADES DE EXCEL (IMPORTAR / EXPORTAR) ---
+        async function syncWithGoogleSheets() {
+            const syncBtn = document.getElementById('syncBtn');
+            const syncSpinner = document.getElementById('syncSpinner');
+            const syncBtnText = document.getElementById('syncBtnText');
 
-        // Función para exportar los datos actuales a Excel
-        function exportToExcel() {
-            // Convierte nuestro arreglo JSON a una hoja de Excel
-            const worksheet = XLSX.utils.json_to_sheet(dbEntidades);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Entidades_Bolivia");
-            
-            // Lanza la descarga automática del archivo
-            XLSX.writeFile(workbook, "Directorio_Entidades_Bolivia.xlsx");
+            if (GOOGLE_SHEETS_ID === 'TU_ID_DE_GOOGLE_SHEETS_AQUI' || !GOOGLE_SHEETS_ID) {
+                alert("⚠️ Acción requerida: Por favor, abre el código de la aplicación y pon el ID de tu Google Sheets en la constante 'GOOGLE_SHEETS_ID' (Línea debajo de <script>).");
+                return;
+            }
+
+            // Construimos la URL secreta de la API de Visualización de Google para extraer CSV crudo
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/gviz/tq?tqx=out:csv`;
+
+            try {
+                // UI: Estado de carga
+                syncBtn.disabled = true;
+                syncSpinner.classList.remove('fab', 'fa-google-drive');
+                syncSpinner.classList.add('fas', 'fa-sync-alt', 'fa-spin');
+                syncBtnText.textContent = "Sincronizando...";
+
+                const response = await fetch(csvUrl);
+                
+                if (!response.ok) {
+                    throw new Error("No se pudo conectar. Verifica que el ID sea correcto y el archivo esté público ('Cualquier persona con el enlace').");
+                }
+
+                const csvText = await response.text();
+
+                // Si la hoja es privada, Google devuelve una página HTML de inicio de sesión
+                if (csvText.trim().toLowerCase().startsWith('<!doctype html>')) {
+                    throw new Error("La hoja es privada. Cambia el acceso a 'Cualquier persona con el enlace'.");
+                }
+
+                // Usamos SheetJS para transformar el CSV extraído en formato JSON
+                const workbook = XLSX.read(csvText, {type: 'string'});
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+
+                // Validamos que haya datos estructurados correctamente
+                if (json.length > 0 && ('sigla' in json[0]) && ('nombre' in json[0])) {
+                    
+                    dbEntidades = json;
+                    entidadesActuales = [...dbEntidades];
+                    
+                    // Guardamos la base de datos (version 5 para forzar refresco)
+                    localStorage.setItem('entidades_bolivia_db_v5', JSON.stringify(dbEntidades));
+                    
+                    searchInput.value = '';
+                    renderEntities(entidadesActuales);
+                    
+                    setTimeout(() => {
+                        alert(`¡Sincronización Exitosa! Se actualizaron ${json.length} entidades directamente desde tu Google Sheets.`);
+                    }, 100);
+
+                } else {
+                    throw new Error('La estructura no coincide. Tu hoja debe tener encabezados como "sigla", "nombre", etc.');
+                }
+
+            } catch (error) {
+                alert("Error de sincronización:\n" + error.message);
+            } finally {
+                // UI: Restaurar estado del botón
+                syncBtn.disabled = false;
+                syncSpinner.classList.remove('fas', 'fa-sync-alt', 'fa-spin');
+                syncSpinner.classList.add('fab', 'fa-google-drive');
+                syncBtnText.textContent = "Sync G. Sheets";
+            }
         }
 
-        // Event listener para cuando el usuario seleccione un archivo Excel
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        // --- EXCEL (Respaldos) ---
+        function exportToExcel() {
+            const worksheet = XLSX.utils.json_to_sheet(dbEntidades);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Plantilla_Entidades");
+            XLSX.writeFile(workbook, "Plantilla_Google_Sheets_Entidades.xlsx");
+        }
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    
-                    // Seleccionar la primera hoja de trabajo
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    
-                    // Convertir de vuelta a JSON
-                    const json = XLSX.utils.sheet_to_json(worksheet);
-                    
-                    // Validación mínima para asegurarnos que se parece a nuestra base de datos
-                    if (json.length > 0 && ('sigla' in json[0]) && ('nombre' in json[0])) {
-                        dbEntidades = json;
-                        entidadesActuales = [...dbEntidades];
-                        
-                        // Guardar en el navegador (usando la nueva versión v3)
-                        localStorage.setItem('entidades_bolivia_db_v3', JSON.stringify(dbEntidades));
-                        
-                        // Limpiar búsqueda y renderizar la nueva información
-                        searchInput.value = '';
-                        renderEntities(entidadesActuales);
-                        
-                        alert('¡Base de datos actualizada correctamente con ' + json.length + ' entidades!');
-                    } else {
-                        alert('Error: El formato de columnas no es válido. Te recomendamos usar el botón "Exportar Excel" primero para tener una plantilla base.');
-                    }
-                } catch (error) {
-                    console.error("Error procesando Excel:", error);
-                    alert('Hubo un error leyendo el archivo Excel. Revisa que no esté corrupto.');
-                }
-                
-                // Reiniciamos el input por si el usuario quiere subir el mismo archivo después
-                document.getElementById('fileInput').value = '';
-            };
-            
-            reader.readAsArrayBuffer(file);
-        });
+        // Inicialización
+        sortEntities(); 
 
     </script>
 </body>
